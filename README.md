@@ -134,7 +134,7 @@ CyberSentinel is designed for use on networks you own or have explicit permissio
 
 ## License
 
-MIT License — free to use, modify, and distribute with attribution.
+MIT License ? — free to use, modify, and distribute with attribution.
 
 ---
 
