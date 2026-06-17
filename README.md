@@ -99,7 +99,7 @@ Layer 6: Live Dashboard             Flask + Chart.js + email + PDF
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/cybersentinel
+git clone https://github.com/SanadeedKhan/cybersentinel
 cd cybersentinel
 pip install -r requirements.txt
 cp .env.example .env
@@ -138,4 +138,4 @@ MIT License — free to use, modify, and distribute with attribution.
 
 ---
 
-Built by [Your Name] as a cybersecurity portfolio project demonstrating behavioral AI security concepts used by enterprise tools like Darktrace and Vectra AI.
+Built by Sanadeed Khan as a cybersecurity portfolio project demonstrating behavioral AI security concepts used by enterprise tools like Darktrace and Vectra AI.
