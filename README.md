@@ -99,7 +99,7 @@ Layer 6: Live Dashboard             Flask + Chart.js + email + PDF
 ### Installation
 
 ```bash
-git clone https://github.com/SanadeedKhan/cybersentinel
+git clone https://github.com/sanadeedkhan3/CyberSentinel
 cd cybersentinel
 pip install -r requirements.txt
 cp .env.example .env
