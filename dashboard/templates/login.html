@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberSentinel — Sign In</title>
+<style>
+:root {
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2235;--border:#1e2d45;
+  --accent:#00e5ff;--accent2:#7c3aed;--red:#ef4444;--green:#22c55e;
+  --text:#e2e8f0;--muted:#64748b;--font-mono:'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column;}
+
+/* animated grid background */
+.bg-grid{position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:40px 40px;opacity:.4;pointer-events:none;}
+.bg-glow{position:fixed;top:-200px;left:50%;transform:translateX(-50%);width:800px;height:600px;background:radial-gradient(ellipse,rgba(124,58,237,.15) 0%,transparent 70%);pointer-events:none;}
+
+/* header */
+header{position:relative;z-index:10;padding:20px 32px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border);}
+.logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:20px;}
+.logo-text{font-size:18px;font-weight:700;letter-spacing:.04em;}
+.logo-text span{color:var(--accent);}
+
+/* main */
+main{flex:1;display:flex;align-items:center;justify-content:center;padding:40px 20px;position:relative;z-index:10;}
+
+.login-wrap{width:100%;max-width:420px;}
+
+.login-card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;box-shadow:0 24px 64px rgba(0,0,0,.5);}
+
+.login-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.login-sub{font-size:13px;color:var(--muted);margin-bottom:32px;}
+
+/* form */
+.field{margin-bottom:20px;}
+.field label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px;}
+.field input{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;font-size:14px;color:var(--text);outline:none;transition:border-color .2s,box-shadow .2s;font-family:inherit;}
+.field input:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(124,58,237,.15);}
+.field input::placeholder{color:var(--muted);}
+
+.field-icon{position:relative;}
+.field-icon input{padding-right:42px;}
+.toggle-pw{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;}
+.toggle-pw:hover{color:var(--text);}
+
+/* error / success */
+.alert{padding:12px 14px;border-radius:8px;font-size:13px;margin-bottom:20px;display:flex;align-items:flex-start;gap:10px;}
+.alert-error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);color:#fca5a5;}
+.alert-warn{background:rgba(234,179,8,.1);border:1px solid rgba(234,179,8,.3);color:#fde68a;}
+.alert-success{background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);color:#86efac;}
+
+/* submit btn */
+.btn-login{width:100%;background:linear-gradient(135deg,var(--accent2),#5b21b6);border:none;border-radius:8px;padding:13px;font-size:14px;font-weight:600;color:#fff;cursor:pointer;letter-spacing:.03em;transition:opacity .2s,transform .1s;margin-top:8px;}
+.btn-login:hover{opacity:.9;}
+.btn-login:active{transform:scale(.99);}
+.btn-login:disabled{opacity:.5;cursor:not-allowed;}
+
+/* security badges */
+.security-info{margin-top:24px;display:flex;flex-direction:column;gap:8px;}
+.sec-badge{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+.sec-icon{font-size:14px;}
+
+/* footer */
+footer{position:relative;z-index:10;text-align:center;padding:20px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);}
+
+/* password strength */
+.pw-strength{margin-top:8px;display:none;}
+.pw-bar{height:3px;border-radius:2px;background:var(--border);overflow:hidden;margin-bottom:4px;}
+.pw-fill{height:100%;width:0%;border-radius:2px;transition:width .3s,background .3s;}
+.pw-label{font-size:11px;color:var(--muted);}
+
+/* change password modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:36px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(0,0,0,.6);}
+.modal-title{font-size:18px;font-weight:700;margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:28px;}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<header>
+  <div class="logo-icon">🛡</div>
+  <div class="logo-text">Cyber<span>Sentinel</span></div>
+</header>
+
+<main>
+  <div class="login-wrap">
+
+    {% if must_change %}
+    <!-- Change password modal shown on first login -->
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-title">Set your password</div>
+        <div class="modal-sub">You are using the default password. Set a strong personal password to continue.</div>
+
+        {% if change_error %}
+        <div class="alert alert-error">⚠ {{ change_error }}</div>
+        {% endif %}
+
+        <form method="POST" action="/change-password">
+          <div class="field">
+            <label>New Password</label>
+            <div class="field-icon">
+              <input type="password" name="new_password" id="new_pw" placeholder="Min 10 chars, uppercase, number, symbol" required autocomplete="new-password">
+              <button type="button" class="toggle-pw" onclick="togglePw('new_pw',this)">👁</button>
+            </div>
+            <div class="pw-strength" id="pw-strength">
+              <div class="pw-bar"><div class="pw-fill" id="pw-fill"></div></div>
+              <div class="pw-label" id="pw-label">Enter a password</div>
+            </div>
+          </div>
+          <div class="field">
+            <label>Confirm Password</label>
+            <div class="field-icon">
+              <input type="password" name="confirm_password" id="conf_pw" placeholder="Repeat your new password" required autocomplete="new-password">
+              <button type="button" class="toggle-pw" onclick="togglePw('conf_pw',this)">👁</button>
+            </div>
+          </div>
+          <button type="submit" class="btn-login">Set Password & Continue →</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="login-card">
+      <div class="login-title">Welcome back</div>
+      <div class="login-sub">Sign in to your CyberSentinel dashboard</div>
+
+      {% if error %}
+      <div class="alert alert-error">⚠ {{ error }}</div>
+      {% endif %}
+
+      {% if warning %}
+      <div class="alert alert-warn">⚠ {{ warning }}</div>
+      {% endif %}
+
+      {% if success %}
+      <div class="alert alert-success">✓ {{ success }}</div>
+      {% endif %}
+
+      <form method="POST" action="/login" id="login-form">
+        <div class="field">
+          <label>Username</label>
+          <input type="text" name="username" placeholder="Enter your username" required autofocus autocomplete="username" value="{{ prefill_username or '' }}">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-icon">
+            <input type="password" name="password" id="pw-input" placeholder="Enter your password" required autocomplete="current-password">
+            <button type="button" class="toggle-pw" onclick="togglePw('pw-input',this)">👁</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-login" id="login-btn">Sign In →</button>
+      </form>
+
+      <div class="security-info">
+        <div class="sec-badge"><span class="sec-icon">🔒</span> Sessions expire after 8 hours automatically</div>
+        <div class="sec-badge"><span class="sec-icon">🛡</span> Account locks after 5 failed attempts</div>
+        <div class="sec-badge"><span class="sec-icon">📋</span> All login attempts are logged with IP address</div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>CyberSentinel &nbsp;·&nbsp; AI Network Threat Detector &nbsp;·&nbsp; All access is monitored and logged</footer>
+
+<script>
+function togglePw(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+// Password strength meter
+const newPw = document.getElementById('new_pw');
+if (newPw) {
+  document.getElementById('pw-strength').style.display = 'block';
+  newPw.addEventListener('input', function() {
+    const pw = this.value;
+    let score = 0;
+    if (pw.length >= 10) score++;
+    if (/[A-Z]/.test(pw)) score++;
+    if (/[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const fill = document.getElementById('pw-fill');
+    const label = document.getElementById('pw-label');
+    const colors = ['#ef4444','#f97316','#eab308','#22c55e','#00e5ff'];
+    const labels = ['Very weak','Weak','Fair','Strong','Very strong'];
+    fill.style.width = (score * 20) + '%';
+    fill.style.background = colors[score - 1] || '#1e2d45';
+    label.textContent = labels[score - 1] || 'Enter a password';
+  });
+}
+
+// Disable submit briefly to prevent double submit
+document.getElementById('login-form') && document.getElementById('login-form').addEventListener('submit', function() {
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CyberSentinel — Live Threat Monitor</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0a0e17;--bg2:#111827;--bg3:#1a2235;--border:#1e2d45;--accent:#00e5ff;--accent2:#7c3aed;--red:#ef4444;--orange:#f97316;--yellow:#eab308;--green:#22c55e;--text:#e2e8f0;--muted:#64748b;--font-mono:'Courier New',monospace;--radius:10px;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:14px;min-height:100vh;display:flex;}
+
+/* ── Sidebar ── */
+.sidebar{width:220px;min-height:100vh;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;position:fixed;top:0;left:0;z-index:50;}
+.sidebar-logo{padding:20px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border);}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--accent2),var(--accent));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;}
+.logo-text{font-size:15px;font-weight:700;letter-spacing:.04em;}
+.logo-text span{color:var(--accent);}
+.sidebar-nav{flex:1;padding:16px 10px;}
+.nav-section{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);padding:8px 10px 6px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:background .15s,color .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;}
+.nav-item:hover{background:var(--bg3);color:var(--text);}
+.nav-item.active{background:rgba(124,58,237,.15);color:var(--accent2);}
+.nav-item .icon{font-size:16px;width:20px;text-align:center;}
+.sidebar-footer{padding:14px 10px;border-top:1px solid var(--border);}
+.user-card{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:var(--bg3);}
+.user-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--accent2),var(--accent));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0;}
+.user-info{flex:1;min-width:0;}
+.user-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.user-role{font-size:11px;color:var(--muted);}
+.logout-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;border-radius:4px;transition:color .15s;}
+.logout-btn:hover{color:var(--red);}
+
+/* ── Main content ── */
+.main{margin-left:220px;flex:1;display:flex;flex-direction:column;min-height:100vh;}
+.topbar{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg2);position:sticky;top:0;z-index:40;}
+.page-title{font-size:15px;font-weight:600;}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.live-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green);font-weight:600;}
+.live-dot{width:7px;height:7px;background:var(--green);border-radius:50%;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+.last-update{font-size:12px;color:var(--muted);font-family:var(--font-mono);}
+.content{padding:24px;flex:1;}
+
+/* ── Views ── */
+.view{display:none;}
+.view.active{display:block;}
+
+/* ── Stat cards ── */
+.stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.c-blue::before{background:var(--accent);}
+.stat-card.c-orange::before{background:var(--orange);}
+.stat-card.c-red::before{background:var(--red);}
+.stat-card.c-purple::before{background:var(--accent2);}
+.stat-card.c-green::before{background:var(--green);}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+.stat-value{font-size:26px;font-weight:700;font-family:var(--font-mono);line-height:1;}
+.stat-card.c-blue .stat-value{color:var(--accent);}
+.stat-card.c-orange .stat-value{color:var(--orange);}
+.stat-card.c-red .stat-value{color:var(--red);}
+.stat-card.c-purple .stat-value{color:var(--accent2);}
+.stat-card.c-green .stat-value{color:var(--green);}
+
+/* ── Panel ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;}
+.panel-header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border);}
+.panel-title{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);}
+.panel-body{padding:16px;}
+.chart-wrap{position:relative;height:180px;}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+
+/* ── Alert feed ── */
+.alert-feed{max-height:320px;overflow-y:auto;}
+.alert-item{padding:12px 16px;border-bottom:1px solid var(--border);transition:background .15s;}
+.alert-item:last-child{border-bottom:none;}
+.alert-item:hover{background:var(--bg3);}
+.alert-top{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.sev-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.05em;}
+.sev-Critical{background:rgba(239,68,68,.2);color:var(--red);}
+.sev-High{background:rgba(249,115,22,.2);color:var(--orange);}
+.sev-Medium{background:rgba(234,179,8,.2);color:var(--yellow);}
+.sev-Low{background:rgba(34,197,94,.2);color:var(--green);}
+.sev-Unknown{background:rgba(100,116,139,.2);color:var(--muted);}
+.alert-ip{font-family:var(--font-mono);font-size:12px;color:var(--accent);}
+.alert-time{font-size:11px;color:var(--muted);margin-left:auto;}
+.alert-type{font-size:12px;font-weight:600;margin-bottom:2px;}
+.alert-explain{font-size:12px;color:var(--muted);line-height:1.5;}
+.alert-action{font-size:11px;color:var(--accent);margin-top:5px;padding-top:5px;border-top:1px solid var(--border);}
+.alert-actions-row{display:flex;gap:6px;margin-top:6px;}
+.btn-sm{font-size:11px;padding:3px 10px;border-radius:4px;border:none;cursor:pointer;font-weight:600;transition:opacity .15s;}
+.btn-ack{background:rgba(34,197,94,.15);color:var(--green);}
+.btn-block{background:rgba(239,68,68,.15);color:var(--red);}
+.btn-sm:hover{opacity:.8;}
+
+/* ── Tables ── */
+.data-table{width:100%;border-collapse:collapse;}
+.data-table th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);}
+.data-table td{padding:10px 12px;font-size:13px;border-bottom:1px solid var(--border);}
+.data-table tr:last-child td{border-bottom:none;}
+.data-table tr:hover td{background:var(--bg3);}
+.ip-cell{font-family:var(--font-mono);color:var(--accent);font-size:12px;}
+.trained-badge{font-size:10px;padding:2px 7px;border-radius:4px;font-weight:600;}
+.trained-yes{background:rgba(34,197,94,.15);color:var(--green);}
+.trained-no{background:rgba(100,116,139,.15);color:var(--muted);}
+
+/* ── Blocked IPs ── */
+.blocked-list{display:flex;flex-direction:column;gap:8px;}
+.blocked-item{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;}
+.blocked-ip{font-family:var(--font-mono);color:var(--red);font-size:13px;}
+.unblock-btn{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3);border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600;}
+.unblock-btn:hover{background:rgba(239,68,68,.25);}
+
+/* ── Settings form ── */
+.settings-section{margin-bottom:28px;}
+.settings-title{font-size:13px;font-weight:600;margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.form-field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:6px;}
+.form-field input,.form-field select{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;transition:border-color .2s;}
+.form-field input:focus,.form-field select:focus{border-color:var(--accent2);}
+.form-field select option{background:var(--bg3);}
+.btn-primary{background:linear-gradient(135deg,var(--accent2),#5b21b6);border:none;border-radius:7px;padding:9px 20px;font-size:13px;font-weight:600;color:#fff;cursor:pointer;transition:opacity .2s;}
+.btn-primary:hover{opacity:.9;}
+.btn-danger{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);border-radius:7px;padding:9px 20px;font-size:13px;font-weight:600;color:var(--red);cursor:pointer;}
+.btn-danger:hover{background:rgba(239,68,68,.25);}
+
+/* ── Audit log ── */
+.log-item{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;}
+.log-item:last-child{border-bottom:none;}
+.log-success{color:var(--green);}
+.log-fail{color:var(--red);}
+.log-ip{font-family:var(--font-mono);color:var(--muted);}
+.log-time{color:var(--muted);margin-left:auto;white-space:nowrap;}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:12px 18px;font-size:13px;z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;display:flex;align-items:center;gap:10px;box-shadow:0 8px 32px rgba(0,0,0,.4);}
+.toast.show{transform:translateY(0);opacity:1;}
+.toast.ok{border-color:rgba(34,197,94,.4);color:var(--green);}
+.toast.err{border-color:rgba(239,68,68,.4);color:var(--red);}
+
+/* ── Empty ── */
+.empty{text-align:center;padding:36px 20px;color:var(--muted);font-size:13px;line-height:1.7;}
+
+/* ── Modal ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:32px;width:100%;max-width:440px;}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:6px;}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:24px;}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end;}
+
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-track{background:var(--bg2);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">🛡</div>
+    <div class="logo-text">Cyber<span>Sentinel</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Monitor</div>
+    <button class="nav-item active" onclick="switchView('overview',this)"><span class="icon">📊</span> Overview</button>
+    <button class="nav-item" onclick="switchView('alerts',this)"><span class="icon">🚨</span> Alerts <span id="alert-badge" style="margin-left:auto;background:rgba(249,115,22,.2);color:var(--orange);font-size:10px;padding:1px 6px;border-radius:10px;display:none"></span></button>
+    <button class="nav-item" onclick="switchView('devices',this)"><span class="icon">💻</span> Devices</button>
+    <button class="nav-item" onclick="switchView('traffic',this)"><span class="icon">📈</span> Traffic</button>
+    <div class="nav-section" style="margin-top:12px">Control</div>
+    <button class="nav-item" onclick="switchView('blocked',this)"><span class="icon">🚫</span> Blocked IPs</button>
+    <button class="nav-item" onclick="switchView('audit',this)"><span class="icon">📋</span> Audit Log</button>
+    <button class="nav-item" onclick="switchView('heatmap',this)"><span class="icon">🌡</span> Heatmap</button>
+    <div class="nav-section" style="margin-top:12px">Account</div>
+    <button class="nav-item" onclick="switchView('settings',this)"><span class="icon">⚙️</span> Settings</button>
+    <button class="nav-item" onclick="switchView('users',this)"><span class="icon">👥</span> Users</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="user-card">
+      <div class="user-avatar" id="user-initial">A</div>
+      <div class="user-info">
+        <div class="user-name" id="user-name">admin</div>
+        <div class="user-role">Administrator</div>
+      </div>
+      <button class="logout-btn" title="Sign out" onclick="confirmLogout()">⏻</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main">
+  <div class="topbar">
+    <div class="page-title" id="page-title">Overview</div>
+    <div class="topbar-right">
+      <div class="live-badge"><div class="live-dot"></div>LIVE</div>
+      <div class="last-update" id="last-update">Connecting...</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- OVERVIEW -->
+    <div class="view active" id="view-overview">
+      <div class="stats-grid">
+        <div class="stat-card c-blue"><div class="stat-label">Packets Captured</div><div class="stat-value" id="s-packets">—</div></div>
+        <div class="stat-card c-orange"><div class="stat-label">Total Alerts</div><div class="stat-value" id="s-alerts">—</div></div>
+        <div class="stat-card c-red"><div class="stat-label">Critical</div><div class="stat-value" id="s-critical">—</div></div>
+        <div class="stat-card c-orange"><div class="stat-label">High</div><div class="stat-value" id="s-high">—</div></div>
+        <div class="stat-card c-purple"><div class="stat-label">Devices Seen</div><div class="stat-value" id="s-devices">—</div></div>
+        <div class="stat-card c-green"><div class="stat-label">Traffic Windows</div><div class="stat-value" id="s-windows">—</div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Network Traffic — KB/s</div></div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="traffic-chart"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Packet Rate</div></div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="packet-chart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Recent Alerts</div><button class="btn-sm btn-ack" onclick="switchView('alerts',null)">View All →</button></div>
+        <div class="alert-feed" id="overview-alert-feed"><div class="empty">No alerts yet</div></div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="view" id="view-alerts">
+
+      <!-- Search & Filter bar -->
+      <div class="panel" style="margin-bottom:16px">
+        <div class="panel-body" style="padding:14px 16px">
+          <div style="display:grid;grid-template-columns:1fr auto auto auto auto auto;gap:10px;align-items:center">
+
+            <!-- Search box -->
+            <div style="position:relative">
+              <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px">🔍</span>
+              <input type="text" id="alert-search" placeholder="Search IP, threat type, explanation..."
+                style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px 8px 32px;font-size:13px;color:var(--text);outline:none;"
+                oninput="filterAlerts()" onfocus="this.style.borderColor='var(--accent2)'" onblur="this.style.borderColor='var(--border)'">
+            </div>
+
+            <!-- Severity filter -->
+            <select id="filter-severity" onchange="filterAlerts()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+              <option value="">All Severities</option>
+              <option value="Critical">🔴 Critical</option>
+              <option value="High">🟠 High</option>
+              <option value="Medium">🟡 Medium</option>
+              <option value="Low">🟢 Low</option>
+              <option value="Unknown">⚪ Unknown</option>
+            </select>
+
+            <!-- Threat type filter -->
+            <select id="filter-threat" onchange="filterAlerts()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+              <option value="">All Threat Types</option>
+              <option value="Port Scan">Port Scan</option>
+              <option value="Data Exfiltration">Data Exfiltration</option>
+              <option value="DDoS">DDoS Attack</option>
+              <option value="ICMP">ICMP Flood</option>
+              <option value="Lateral">Lateral Movement</option>
+              <option value="Anomalous">Anomalous Behavior</option>
+            </select>
+
+            <!-- Time range filter -->
+            <select id="filter-time" onchange="fetchFilteredAlerts()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+              <option value="0">All Time</option>
+              <option value="1">Last 1 Hour</option>
+              <option value="6">Last 6 Hours</option>
+              <option value="24" selected>Last 24 Hours</option>
+              <option value="168">Last 7 Days</option>
+            </select>
+
+            <!-- Sort -->
+            <select id="filter-sort" onchange="filterAlerts()"
+              style="background:var(--bg3);border:1px solid var(--border);border-radius:7px;padding:8px 12px;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+              <option value="time-desc">Newest First</option>
+              <option value="time-asc">Oldest First</option>
+              <option value="severity">By Severity</option>
+              <option value="score">By Score</option>
+            </select>
+
+            <!-- Clear button -->
+            <button onclick="clearFilters()"
+              style="background:rgba(100,116,139,.15);border:1px solid var(--border);border-radius:7px;padding:8px 14px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap">
+              ✕ Clear
+            </button>
+          </div>
+
+          <!-- Active filter summary + result count -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+            <div id="filter-summary" style="font-size:12px;color:var(--muted)">Showing all alerts</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn-sm btn-ack" onclick="acknowledgeAll()">✓ Acknowledge All</button>
+              <button class="btn-sm" style="background:rgba(100,116,139,.15);color:var(--muted)" onclick="exportFilteredAlerts()">⬇ Export CSV</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alert results -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title" id="alerts-panel-title">Alerts</div>
+          <div id="sev-counts-bar" style="display:flex;gap:6px"></div>
+        </div>
+        <div class="alert-feed" id="full-alert-feed" style="max-height:65vh">
+          <div class="empty">Loading alerts...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICES -->
+    <div class="view" id="view-devices">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Known Devices</div><button class="btn-sm btn-ack" onclick="refreshDevices()">↻ Refresh</button></div>
+        <div class="panel-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>IP Address</th><th>Windows</th><th>Avg KB/s</th><th>Avg Ports</th><th>AI Status</th><th>Last Seen</th><th>Actions</th></tr></thead>
+            <tbody id="devices-tbody"><tr><td colspan="7" class="empty">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRAFFIC -->
+    <div class="view" id="view-traffic">
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Bandwidth — KB/s over time</div></div>
+          <div class="panel-body"><div class="chart-wrap" style="height:220px"><canvas id="traffic-chart-2"></canvas></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Packet Rate over time</div></div>
+          <div class="panel-body"><div class="chart-wrap" style="height:220px"><canvas id="packet-chart-2"></canvas></div></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Active Devices over time</div></div>
+        <div class="panel-body"><div class="chart-wrap" style="height:160px"><canvas id="devices-chart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- BLOCKED IPs -->
+    <div class="view" id="view-blocked">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">Blocked IP Addresses</div>
+          <button class="btn-sm btn-block" onclick="openBlockModal()">+ Block IP</button>
+        </div>
+        <div class="panel-body">
+          <div class="blocked-list" id="blocked-list"><div class="empty">No IPs blocked. Block suspicious devices from the Alerts or Devices view.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT LOG -->
+    <div class="view" id="view-audit">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Login Audit Log</div><button class="btn-sm" style="background:rgba(100,116,139,.15);color:var(--muted);" onclick="loadAuditLog()">↻ Refresh</button></div>
+        <div id="audit-log-body"><div class="empty">Loading...</div></div>
+      </div>
+    </div>
+
+    <!-- HEATMAP -->
+    <div class="view" id="view-heatmap">
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Threat Activity Heatmap — Alerts by Day & Hour</div></div>
+        <div class="panel-body">
+          <div id="heatmap-container" style="overflow-x:auto"></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:16px;font-size:12px;color:var(--muted)">
+            <span>Less</span>
+            <div style="display:flex;gap:2px">
+              <div style="width:14px;height:14px;border-radius:3px;background:#1e2d45"></div>
+              <div style="width:14px;height:14px;border-radius:3px;background:rgba(124,58,237,.3)"></div>
+              <div style="width:14px;height:14px;border-radius:3px;background:rgba(124,58,237,.6)"></div>
+              <div style="width:14px;height:14px;border-radius:3px;background:#f97316"></div>
+              <div style="width:14px;height:14px;border-radius:3px;background:#ef4444"></div>
+            </div>
+            <span>More alerts</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings">
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Change Password</div></div>
+          <div class="panel-body">
+            <div id="pw-msg"></div>
+            <div class="form-field" style="margin-bottom:14px"><label>Current Password</label><input type="password" id="curr-pw" placeholder="Your current password"></div>
+            <div class="form-field" style="margin-bottom:14px"><label>New Password</label><input type="password" id="new-pw" placeholder="Min 10 chars, uppercase, number, symbol"></div>
+            <div class="form-field" style="margin-bottom:18px"><label>Confirm New Password</label><input type="password" id="conf-pw" placeholder="Repeat new password"></div>
+            <button class="btn-primary" onclick="doChangePassword()">Update Password</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Detection Settings</div></div>
+          <div class="panel-body">
+            <div class="form-row">
+              <div class="form-field"><label>Window Size (seconds)</label><input type="number" id="set-window" value="30" min="10" max="300"></div>
+              <div class="form-field"><label>Sensitivity</label><select id="set-sensitivity"><option value="0.03">High (more alerts)</option><option value="0.05" selected>Medium (recommended)</option><option value="0.10">Low (fewer alerts)</option></select></div>
+            </div>
+            <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+          </div>
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📧 Email Alerts</div></div>
+          <div class="panel-body">
+            <div id="email-status-box" style="margin-bottom:16px;padding:10px 14px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--muted)">Checking email configuration...</div>
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Email alerts notify you instantly when a High or Critical threat is detected — even when the dashboard is closed. Configure SMTP settings in your <code>.env</code> file.</p>
+            <button class="btn-primary" onclick="sendTestEmail()">📧 Send Test Email</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">📄 PDF Security Report</div></div>
+          <div class="panel-body">
+            <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6">Generate a professional PDF security report including all alerts, device inventory, blocked IPs, and traffic summary.</p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn-primary" onclick="downloadReport(24)">📄 Last 24 Hours</button>
+              <button class="btn-sm" style="background:rgba(124,58,237,.15);color:var(--accent2);padding:9px 16px;font-size:13px;" onclick="downloadReport(168)">Last 7 Days</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="view" id="view-users">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">User Accounts</div>
+          <button class="btn-sm btn-ack" onclick="openAddUserModal()">+ Add User</button>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Username</th><th>Role</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="users-tbody">
+              <tr><td colspan="5" class="empty">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Block IP Modal -->
+<div class="modal-overlay" id="block-modal">
+  <div class="modal">
+    <div class="modal-title">Block an IP Address</div>
+    <div class="modal-sub">Traffic from this IP will be flagged as blocked in the system.</div>
+    <div class="form-field"><label>IP Address</label><input type="text" id="block-ip-input" placeholder="e.g. 192.168.1.99"></div>
+    <div class="form-field" style="margin-top:12px"><label>Reason (optional)</label><input type="text" id="block-reason-input" placeholder="e.g. Port scan detected"></div>
+    <div class="modal-actions">
+      <button class="btn-sm" style="background:var(--bg3);color:var(--muted);padding:8px 16px;" onclick="closeModal('block-modal')">Cancel</button>
+      <button class="btn-danger" style="padding:8px 20px;font-size:13px;" onclick="doBlockIP()">Block IP</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add User Modal -->
+<div class="modal-overlay" id="adduser-modal">
+  <div class="modal">
+    <div class="modal-title">Add New User</div>
+    <div class="modal-sub">Create a new account that can access this dashboard.</div>
+    <div class="form-field" style="margin-bottom:12px"><label>Username</label><input type="text" id="new-username" placeholder="e.g. analyst1"></div>
+    <div class="form-field" style="margin-bottom:12px"><label>Password</label><input type="password" id="new-user-pw" placeholder="Min 10 chars"></div>
+    <div class="form-field" style="margin-bottom:12px"><label>Role</label>
+      <select id="new-user-role"><option value="admin">Admin (full access)</option><option value="viewer">Viewer (read only)</option></select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sm" style="background:var(--bg3);color:var(--muted);padding:8px 16px;" onclick="closeModal('adduser-modal')">Cancel</button>
+      <button class="btn-primary" style="padding:8px 20px;" onclick="doAddUser()">Create User</button>
+    </div>
+  </div>
+</div>
+
+<!-- Logout confirm Modal -->
+<div class="modal-overlay" id="logout-modal">
+  <div class="modal">
+    <div class="modal-title">Sign out?</div>
+    <div class="modal-sub">Your session will be ended and you will need to log in again to access the dashboard.</div>
+    <div class="modal-actions">
+      <button class="btn-sm" style="background:var(--bg3);color:var(--muted);padding:8px 16px;" onclick="closeModal('logout-modal')">Cancel</button>
+      <a href="/logout"><button class="btn-danger" style="padding:8px 20px;font-size:13px;">Sign Out</button></a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Charts ────────────────────────────────────────────────────────────────────
+const co={responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#64748b',font:{size:10,family:'Courier New'},maxTicksLimit:8},grid:{color:'#1e2d45'}},y:{ticks:{color:'#64748b',font:{size:10}},grid:{color:'#1e2d45'}}}};
+const mkLine=(id,color)=>new Chart(document.getElementById(id),{type:'line',data:{labels:[],datasets:[{data:[],borderColor:color,backgroundColor:color.replace(')',',0.08)').replace('rgb','rgba'),borderWidth:2,fill:true,tension:0.4,pointRadius:2}]},options:{...co}});
+const mkBar=(id,color)=>new Chart(document.getElementById(id),{type:'bar',data:{labels:[],datasets:[{data:[],backgroundColor:color.replace(')',',0.5)').replace('rgb','rgba'),borderColor:color,borderWidth:1,borderRadius:3}]},options:{...co}});
+
+const trafficChart  = mkLine('traffic-chart','rgb(0,229,255)');
+const packetChart   = mkBar('packet-chart','rgb(124,58,237)');
+const trafficChart2 = mkLine('traffic-chart-2','rgb(0,229,255)');
+const packetChart2  = mkBar('packet-chart-2','rgb(124,58,237)');
+const devicesChart  = mkLine('devices-chart','rgb(34,197,94)');
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let blockedIPs = JSON.parse(localStorage.getItem('blocked_ips')||'[]');
+let currentView = 'overview';
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+const titles={'overview':'Overview','alerts':'Alerts','devices':'Devices','traffic':'Traffic','blocked':'Blocked IPs','audit':'Audit Log','settings':'Settings','users':'Users'};
+function switchView(name, btn){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  else document.querySelectorAll('.nav-item').forEach(n=>{if(n.textContent.trim().startsWith(titles[name]?.charAt(0))){}});
+  document.getElementById('page-title').textContent = titles[name]||name;
+  currentView = name;
+  if(name==='audit') loadAuditLog();
+  if(name==='users') loadUsers();
+  if(name==='blocked') renderBlocked();
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg, type='ok'){
+  const t=document.getElementById('toast');
+  t.textContent=(type==='ok'?'✓ ':'✗ ')+msg;
+  t.className='toast show '+(type==='ok'?'ok':'err');
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(n){if(n===undefined||n===null)return'—';if(n>=1e6)return(n/1e6).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return String(n);}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+function confirmLogout(){document.getElementById('logout-modal').classList.add('open');}
+function openBlockModal(){document.getElementById('block-modal').classList.add('open');}
+function openAddUserModal(){document.getElementById('adduser-modal').classList.add('open');}
+
+// ── Alert renderer ────────────────────────────────────────────────────────────
+function renderAlerts(alerts, containerId){
+  const el=document.getElementById(containerId);
+  if(!alerts.length){el.innerHTML='<div class="empty">No alerts yet. Waiting for anomalies...</div>';return;}
+  el.innerHTML=alerts.map(a=>`
+    <div class="alert-item" id="alert-${a.id}">
+      <div class="alert-top">
+        <span class="sev-badge sev-${a.severity}">${a.severity.toUpperCase()}</span>
+        <span class="alert-ip">${a.src_ip}</span>
+        <span class="alert-time">${a.time_str||''}</span>
+      </div>
+      <div class="alert-type">${a.threat_type}</div>
+      <div class="alert-explain">${a.explanation}</div>
+      <div class="alert-action">→ ${a.recommended_action}</div>
+      <div class="alert-actions-row">
+        <button class="btn-sm btn-ack" onclick="acknowledgeAlert(${a.id})">✓ Acknowledge</button>
+        <button class="btn-sm btn-block" onclick="quickBlock('${a.src_ip}')">🚫 Block IP</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── Data fetchers ─────────────────────────────────────────────────────────────
+async function fetchStats(){
+  try{
+    const d=await(await fetch('/api/stats')).json();
+    document.getElementById('s-packets').textContent=fmt(d.total_packets);
+    document.getElementById('s-alerts').textContent=fmt(d.total_alerts);
+    document.getElementById('s-critical').textContent=fmt(d.critical);
+    document.getElementById('s-high').textContent=fmt(d.high);
+    document.getElementById('s-devices').textContent=fmt(d.devices);
+    document.getElementById('s-windows').textContent=fmt(d.windows);
+    const badge=document.getElementById('alert-badge');
+    if(d.total_alerts>0){badge.textContent=d.total_alerts;badge.style.display='';}
+  }catch(e){}
+}
+
+async function fetchTraffic(){
+  try{
+    const d=await(await fetch('/api/traffic')).json();
+    [trafficChart,trafficChart2].forEach(c=>{c.data.labels=d.labels;c.data.datasets[0].data=d.bytes;c.update();});
+    [packetChart,packetChart2].forEach(c=>{c.data.labels=d.labels;c.data.datasets[0].data=d.packets;c.update();});
+    devicesChart.data.labels=d.labels;devicesChart.data.datasets[0].data=d.devices;devicesChart.update();
+  }catch(e){}
+}
+
+// ── Alert data store (all alerts kept in memory for instant filtering) ─────────
+let allAlerts = [];
+let acknowledgedIds = new Set();
+
+async function fetchAlerts() {
+  try {
+    const alerts = await (await fetch('/api/alerts?limit=200')).json();
+    renderAlerts(alerts, 'overview-alert-feed');
+  } catch(e) {}
+}
+
+async function fetchFilteredAlerts() {
+  try {
+    const hours = document.getElementById('filter-time')?.value || '0';
+    const url   = hours === '0' ? '/api/alerts?limit=500' : `/api/alerts?limit=500&hours=${hours}`;
+    const data  = await (await fetch(url)).json();
+    allAlerts   = data;
+    updateSevCounts();
+    filterAlerts();
+  } catch(e) {}
+}
+
+function filterAlerts() {
+  const search   = (document.getElementById('alert-search')?.value  || '').toLowerCase();
+  const severity = document.getElementById('filter-severity')?.value || '';
+  const threat   = document.getElementById('filter-threat')?.value   || '';
+  const sortBy   = document.getElementById('filter-sort')?.value     || 'time-desc';
+
+  let filtered = allAlerts.filter(a => {
+    if (acknowledgedIds.has(a.id)) return false;
+    if (severity && a.severity !== severity) return false;
+    if (threat   && !((a.threat_type||'').includes(threat))) return false;
+    if (search) {
+      const haystack = `${a.src_ip} ${a.threat_type} ${a.explanation} ${a.recommended_action}`.toLowerCase();
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  const sevOrder = {Critical:0, High:1, Medium:2, Low:3, Unknown:4};
+  if      (sortBy === 'time-asc')  filtered.sort((a,b) => a.timestamp - b.timestamp);
+  else if (sortBy === 'severity')  filtered.sort((a,b) => (sevOrder[a.severity]||4) - (sevOrder[b.severity]||4));
+  else if (sortBy === 'score')     filtered.sort((a,b) => b.anomaly_score - a.anomaly_score);
+  else                             filtered.sort((a,b) => b.timestamp - a.timestamp);
+
+  // Update summary
+  const parts = [];
+  if (search)   parts.push(`"${search}"`);
+  if (severity) parts.push(severity);
+  if (threat)   parts.push(threat);
+  const summary = document.getElementById('filter-summary');
+  if (summary) {
+    summary.textContent = parts.length
+      ? `Showing ${filtered.length} of ${allAlerts.length} alerts · Filtered by: ${parts.join(', ')}`
+      : `Showing all ${filtered.length} alerts`;
+    summary.style.color = parts.length ? 'var(--accent)' : 'var(--muted)';
+  }
+
+  const title = document.getElementById('alerts-panel-title');
+  if (title) title.textContent = `Alerts (${filtered.length})`;
+
+  renderFilteredAlerts(filtered);
+}
+
+function clearFilters() {
+  const ids = ['alert-search','filter-severity','filter-threat','filter-sort'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = el.tagName === 'SELECT' ? el.options[0].value : '';
+  });
+  document.getElementById('filter-time').value = '24';
+  fetchFilteredAlerts();
+}
+
+function updateSevCounts() {
+  const counts = {Critical:0, High:0, Medium:0, Low:0};
+  allAlerts.forEach(a => { if (counts[a.severity] !== undefined) counts[a.severity]++; });
+  const bar   = document.getElementById('sev-counts-bar');
+  const colors = {Critical:'var(--red)', High:'var(--orange)', Medium:'var(--yellow)', Low:'var(--green)'};
+  if (bar) bar.innerHTML = Object.entries(counts)
+    .filter(([,v]) => v > 0)
+    .map(([k,v]) => `<span style="font-size:11px;font-weight:700;color:${colors[k]};background:rgba(0,0,0,.3);padding:2px 8px;border-radius:10px;cursor:pointer" onclick="document.getElementById('filter-severity').value='${k}';filterAlerts()">${k}: ${v}</span>`)
+    .join('');
+}
+
+function renderFilteredAlerts(alerts) {
+  const el = document.getElementById('full-alert-feed');
+  if (!el) return;
+  if (!alerts.length) {
+    el.innerHTML = '<div class="empty">No alerts match your filters.<br><span style="font-size:12px">Try clearing the search or changing the time range.</span></div>';
+    return;
+  }
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-item" id="alert-${a.id}">
+      <div class="alert-top">
+        <span class="sev-badge sev-${a.severity}">${a.severity.toUpperCase()}</span>
+        <span class="alert-ip" style="cursor:pointer" onclick="inspectIP('${a.src_ip}')" title="Click to inspect">${a.src_ip} 🔍</span>
+        <span style="font-size:11px;background:rgba(100,116,139,.15);color:var(--muted);padding:1px 7px;border-radius:8px;margin-left:4px">${a.threat_type}</span>
+        <span class="alert-time">${a.time_str||''}</span>
+      </div>
+      <div class="alert-explain" style="margin-top:4px">${a.explanation}</div>
+      <div class="alert-action">→ ${a.recommended_action}</div>
+      <div style="display:flex;gap:6px;margin-top:7px;align-items:center">
+        <span style="font-size:11px;color:var(--muted)">Score: <b style="color:var(--text)">${(a.anomaly_score||0).toFixed(2)}</b></span>
+        <span style="color:var(--border)">·</span>
+        <span style="font-size:11px;color:var(--muted)">Confidence: <b style="color:var(--text)">${a.confidence_pct||0}%</b></span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="btn-sm btn-ack" onclick="acknowledgeAlert(${a.id})">✓ Ack</button>
+          <button class="btn-sm" style="background:rgba(0,229,255,.1);color:var(--accent)" onclick="inspectIP('${a.src_ip}')">🔍 Inspect</button>
+          <button class="btn-sm btn-block" onclick="quickBlock('${a.src_ip}')">🚫 Block</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function acknowledgeAlert(id) {
+  acknowledgedIds.add(id);
+  const el = document.getElementById('alert-'+id);
+  if (el) { el.style.transition='opacity .4s'; el.style.opacity='0'; setTimeout(()=>el.remove(),400); }
+  toast('Alert acknowledged');
+  updateSevCounts();
+}
+
+function acknowledgeAll() {
+  allAlerts.forEach(a => acknowledgedIds.add(a.id));
+  document.querySelectorAll('.alert-item').forEach(el => {
+    el.style.transition='opacity .3s'; el.style.opacity='0';
+    setTimeout(()=>el.remove(),300);
+  });
+  toast('All alerts acknowledged');
+  const el=document.getElementById('full-alert-feed');
+  setTimeout(()=>{ if(el) el.innerHTML='<div class="empty">All alerts acknowledged.</div>'; },350);
+}
+
+function exportFilteredAlerts() {
+  const filtered = allAlerts.filter(a => !acknowledgedIds.has(a.id));
+  const rows = [['Time','IP','Severity','Threat','Score','Confidence','Explanation','Action']];
+  filtered.forEach(a => rows.push([
+    a.time_str, a.src_ip, a.severity, a.threat_type,
+    (a.anomaly_score||0).toFixed(2), a.confidence_pct+'%',
+    a.explanation, a.recommended_action
+  ]));
+  const csv = rows.map(r=>r.map(c=>'"'+(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = 'data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  link.download = `cybersentinel_alerts_${new Date().toISOString().slice(0,10)}.csv`;
+  link.click();
+  toast(`Exported ${filtered.length} alerts`);
+}
+
+async function refreshDevices(){
+  try{
+    const devices=await(await fetch('/api/devices')).json();
+    const tbody=document.getElementById('devices-tbody');
+    if(!devices.length){tbody.innerHTML='<tr><td colspan="7" class="empty">No devices yet</td></tr>';return;}
+    tbody.innerHTML=devices.map(d=>`
+      <tr>
+        <td class="ip-cell">${d.src_ip}</td>
+        <td>${d.window_count}</td>
+        <td>${(d.avg_bytes_per_sec/1024).toFixed(1)} KB/s</td>
+        <td>${d.avg_unique_dst_ports}</td>
+        <td><span class="trained-badge ${d.model_trained?'trained-yes':'trained-no'}">${d.model_trained?'Ready':'Learning'}</span></td>
+        <td style="color:var(--muted);font-size:12px">${d.last_seen_str||'—'}</td>
+        <td><button class="btn-sm btn-block" onclick="quickBlock('${d.src_ip}')">🚫 Block</button></td>
+      </tr>`).join('');
+  }catch(e){}
+}
+
+async function loadAuditLog(){
+  try{
+    const logs=await(await fetch('/api/audit-log')).json();
+    const el=document.getElementById('audit-log-body');
+    if(!logs.length){el.innerHTML='<div class="empty">No login attempts recorded yet.</div>';return;}
+    el.innerHTML=logs.map(l=>`
+      <div class="log-item">
+        <span>${l.success?'✅':'❌'}</span>
+        <span class="${l.success?'log-success':'log-fail'}" style="font-weight:600">${l.username}</span>
+        <span class="log-ip">${l.ip_address}</span>
+        <span style="color:var(--muted)">${l.success?'Login success':'Login failed'}</span>
+        <span class="log-time">${l.time_str}</span>
+      </div>`).join('');
+  }catch(e){}
+}
+
+async function loadUsers(){
+  // Placeholder — shows current admin; full multi-user coming in next update
+  document.getElementById('users-tbody').innerHTML=`
+    <tr>
+      <td class="ip-cell" style="color:var(--text)">${document.getElementById('user-name').textContent}</td>
+      <td><span class="trained-badge trained-yes">Admin</span></td>
+      <td style="color:var(--muted);font-size:12px">This session</td>
+      <td><span class="trained-badge trained-yes">Active</span></td>
+      <td><span style="color:var(--muted);font-size:12px">Current user</span></td>
+    </tr>`;
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+function acknowledgeAlert(id){
+  const el=document.getElementById('alert-'+id);
+  if(el){el.style.opacity='.4';el.style.pointerEvents='none';}
+  toast('Alert acknowledged');
+}
+
+function acknowledgeAll(){
+  document.querySelectorAll('.alert-item').forEach(el=>{el.style.opacity='.4';el.style.pointerEvents='none';});
+  toast('All alerts acknowledged');
+}
+
+function quickBlock(ip){
+  document.getElementById('block-ip-input').value=ip;
+  openBlockModal();
+}
+
+function doBlockIP(){
+  const ip=document.getElementById('block-ip-input').value.trim();
+  const reason=document.getElementById('block-reason-input').value.trim();
+  if(!ip){toast('Enter a valid IP address','err');return;}
+  if(!blockedIPs.find(b=>b.ip===ip)){
+    blockedIPs.push({ip,reason:reason||'Manually blocked',time:new Date().toLocaleTimeString()});
+    localStorage.setItem('blocked_ips',JSON.stringify(blockedIPs));
+  }
+  closeModal('block-modal');
+  renderBlocked();
+  toast(`${ip} blocked successfully`);
+  document.getElementById('block-ip-input').value='';
+  document.getElementById('block-reason-input').value='';
+}
+
+function unblockIP(ip){
+  blockedIPs=blockedIPs.filter(b=>b.ip!==ip);
+  localStorage.setItem('blocked_ips',JSON.stringify(blockedIPs));
+  renderBlocked();
+  toast(`${ip} unblocked`);
+}
+
+function renderBlocked(){
+  const el=document.getElementById('blocked-list');
+  if(!blockedIPs.length){el.innerHTML='<div class="empty">No IPs blocked. Block suspicious devices from the Alerts or Devices view.</div>';return;}
+  el.innerHTML=blockedIPs.map(b=>`
+    <div class="blocked-item">
+      <div>
+        <div class="blocked-ip">${b.ip}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${b.reason} · ${b.time}</div>
+      </div>
+      <button class="unblock-btn" onclick="unblockIP('${b.ip}')">Unblock</button>
+    </div>`).join('');
+}
+
+function exportAlerts(){
+  fetch('/api/alerts').then(r=>r.json()).then(alerts=>{
+    const rows=[['Time','IP','Threat','Severity','Explanation','Action']];
+    alerts.forEach(a=>rows.push([a.time_str,a.src_ip,a.threat_type,a.severity,a.explanation,a.recommended_action]));
+    const csv=rows.map(r=>r.map(c=>'"'+(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+    const a=document.createElement('a');
+    a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+    a.download='cybersentinel_alerts_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+    toast('Alerts exported as CSV');
+  });
+}
+
+async function doChangePassword(){
+  const curr=document.getElementById('curr-pw').value;
+  const newp=document.getElementById('new-pw').value;
+  const conf=document.getElementById('conf-pw').value;
+  const msg=document.getElementById('pw-msg');
+  if(newp!==conf){msg.innerHTML='<div class="alert alert-error" style="margin-bottom:12px">⚠ Passwords do not match</div>';return;}
+  try{
+    const res=await fetch('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({current:curr,new_password:newp,confirm:conf})});
+    const d=await res.json();
+    if(d.ok){msg.innerHTML='<div class="alert alert-success" style="margin-bottom:12px">✓ Password changed successfully</div>';toast('Password updated');}
+    else{msg.innerHTML=`<div class="alert alert-error" style="margin-bottom:12px">⚠ ${d.error}</div>`;}
+  }catch(e){toast('Error changing password','err');}
+}
+
+function saveSettings(){toast('Settings saved (restart required for full effect)');}
+
+function doAddUser(){
+  const u=document.getElementById('new-username').value.trim();
+  if(!u){toast('Enter a username','err');return;}
+  closeModal('adduser-modal');
+  toast(`User "${u}" created — full multi-user support coming soon`);
+}
+
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+async function loadHeatmap() {
+  try {
+    const d = await (await fetch('/api/heatmap')).json();
+    const days = d.days;
+    const grid = d.grid;
+    const maxV = d.max || 1;
+
+    const hours = Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')+':00');
+
+    function cellColor(v) {
+      if (!v) return '#1e2d45';
+      const ratio = v / maxV;
+      if (ratio < 0.25) return 'rgba(124,58,237,0.3)';
+      if (ratio < 0.5)  return 'rgba(124,58,237,0.6)';
+      if (ratio < 0.75) return '#f97316';
+      return '#ef4444';
+    }
+
+    let html = '<table style="border-collapse:collapse;width:100%;min-width:700px">';
+    // Header row — hours
+    html += '<tr><td style="width:40px"></td>';
+    for (let h = 0; h < 24; h++) {
+      html += `<td style="text-align:center;font-size:9px;color:var(--muted);padding:2px 1px">${h.toString().padStart(2,'0')}</td>`;
+    }
+    html += '</tr>';
+
+    // Data rows — days
+    for (let dow = 0; dow < 7; dow++) {
+      html += `<tr><td style="font-size:11px;color:var(--muted);padding:2px 8px 2px 0;white-space:nowrap">${days[dow]}</td>`;
+      for (let h = 0; h < 24; h++) {
+        const v = grid[dow][h];
+        const bg = cellColor(v);
+        const title = v ? `${days[dow]} ${h.toString().padStart(2,'0')}:00 — ${v} alert${v>1?'s':''}` : 'No alerts';
+        html += `<td title="${title}" style="width:calc(100%/24);height:20px;background:${bg};border-radius:3px;margin:1px;cursor:${v?'pointer':'default'}" onclick="${v?`toast('${title}')`:''}" ></td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</table>';
+
+    document.getElementById('heatmap-container').innerHTML = html;
+  } catch(e) {
+    document.getElementById('heatmap-container').innerHTML = '<div class="empty">No heatmap data yet. Alerts will appear here over time.</div>';
+  }
+}
+
+// ── Email & PDF ───────────────────────────────────────────────────────────────
+async function checkEmailStatus() {
+  try {
+    const d = await (await fetch('/api/email-status')).json();
+    const box = document.getElementById('email-status-box');
+    if (!box) return;
+    if (d.configured) {
+      box.style.borderColor = 'rgba(34,197,94,.4)';
+      box.style.color = '#86efac';
+      box.innerHTML = `✅ Email alerts active → <strong>${d.alert_email}</strong>`;
+    } else {
+      box.style.borderColor = 'rgba(234,179,8,.4)';
+      box.style.color = '#fde68a';
+      box.innerHTML = '⚠ Email not configured. Add SMTP_USER, SMTP_PASSWORD, ALERT_EMAIL to your .env file.';
+    }
+  } catch(e) {}
+}
+
+async function sendTestEmail() {
+  toast('Sending test email...');
+  try {
+    const res  = await fetch('/api/send-test-email', {method:'POST'});
+    const data = await res.json();
+    toast(data.message, data.ok ? 'ok' : 'err');
+  } catch(e) { toast('Error sending email','err'); }
+}
+
+function downloadReport(hours) {
+  toast(`Generating ${hours===24?'24-hour':'7-day'} PDF report...`);
+  window.location.href = `/api/download-report?hours=${hours}`;
+}
+
+// Override switchView to load heatmap and email status when needed
+const _origSwitch = switchView;
+switchView = function(name, btn) {
+  _origSwitch(name, btn);
+  if (name === 'heatmap') loadHeatmap();
+  if (name === 'settings') checkEmailStatus();
+};
+
+// Add to titles
+titles['heatmap'] = 'Threat Heatmap';
+
+fetch('/api/me').then(r=>r.json()).then(u=>{
+  document.getElementById('user-name').textContent=u.username;
+  document.getElementById('user-initial').textContent=u.username.charAt(0).toUpperCase();
+}).catch(()=>{});
+
+// ── Change password API endpoint (inline) ─────────────────────────────────────
+// This is handled via app.py /api/change-password
+
+// ── Desktop notifications ─────────────────────────────────────────────────────
+let notifiedIds = new Set();
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendDesktopNotification(alert) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (notifiedIds.has(alert.id)) return;
+  notifiedIds.add(alert.id);
+
+  const sev   = alert.severity || 'Unknown';
+  const icons = {Critical:'🚨', High:'⚠️', Medium:'ℹ️', Low:'✅'};
+  const n = new Notification(`${icons[sev]||'⚠️'} CyberSentinel — ${sev} Alert`, {
+    body   : `${alert.src_ip}: ${alert.threat_type}\n${(alert.explanation||'').slice(0,100)}...`,
+    icon   : '/static/icon.png',
+    badge  : '/static/icon.png',
+    tag    : `alert-${alert.id}`,
+    requireInteraction: sev === 'Critical',
+  });
+  n.onclick = () => { window.focus(); switchView('alerts', null); n.close(); };
+  if (sev !== 'Critical') setTimeout(() => n.close(), 8000);
+}
+
+function checkForNewAlerts(freshAlerts) {
+  const highPriority = freshAlerts.filter(a => ['Critical','High'].includes(a.severity));
+  highPriority.forEach(a => sendDesktopNotification(a));
+}
+
+// Request permission on first interaction
+document.addEventListener('click', requestNotificationPermission, {once: true});
+
+// ── Update all data ───────────────────────────────────────────────────────────
+function updateAll() {
+  fetchStats();
+  fetchTraffic();
+  fetchAlerts();
+  if (currentView === 'alerts')  fetchFilteredAlerts();
+  if (currentView === 'devices') refreshDevices();
+
+  // Check for new High/Critical alerts and notify
+  fetch('/api/alerts?limit=20').then(r=>r.json()).then(alerts => {
+    checkForNewAlerts(alerts);
+    // Update overview feed
+    renderAlerts(alerts, 'overview-alert-feed');
+  }).catch(()=>{});
+
+  document.getElementById('last-update').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+}
+
+// Load alerts when switching to alerts view
+const __origSwitch2 = switchView;
+switchView = function(name, btn) {
+  __origSwitch2(name, btn);
+  if (name === 'alerts') fetchFilteredAlerts();
+};
+
+updateAll();
+setInterval(updateAll, 5000);
+</script>
+</body>
+</html>
+<script>
+// ── IP Activity Inspector ─────────────────────────────────────────────────────
+// Inject inspector modal into body
+document.body.insertAdjacentHTML('beforeend', `
+<div class="modal-overlay" id="ip-inspector-modal" style="z-index:300">
+  <div class="modal" style="max-width:680px;max-height:80vh;overflow-y:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div>
+        <div class="modal-title" id="inspector-title">IP Activity</div>
+        <div class="modal-sub" id="inspector-sub">Full traffic history for this device</div>
+      </div>
+      <button onclick="closeModal('ip-inspector-modal')" style="background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer">✕</button>
+    </div>
+    <div id="inspector-body"><div class="empty">Loading...</div></div>
+  </div>
+</div>`);
+
+async function inspectIP(ip) {
+  document.getElementById('inspector-title').textContent = ip;
+  document.getElementById('inspector-sub').textContent = 'Loading activity...';
+  document.getElementById('inspector-body').innerHTML = '<div class="empty">Loading...</div>';
+  document.getElementById('ip-inspector-modal').classList.add('open');
+
+  try {
+    const d = await (await fetch(`/api/ip-activity/${ip}`)).json();
+    const b = d.baseline;
+
+    let html = '';
+
+    // Baseline card
+    if (b) {
+      html += `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:16px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:10px">Normal Baseline (what this device usually does)</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div><div style="font-size:10px;color:var(--muted)">Avg KB/s</div><div style="font-size:18px;font-weight:700;color:var(--accent);font-family:var(--font-mono)">${(b.avg_bytes_per_sec/1024).toFixed(1)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">Avg Packets</div><div style="font-size:18px;font-weight:700;color:var(--accent2);font-family:var(--font-mono)">${Math.round(b.avg_packet_count||0)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">Avg Ports</div><div style="font-size:18px;font-weight:700;color:var(--green);font-family:var(--font-mono)">${(b.avg_unique_dst_ports||0).toFixed(1)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted)">Windows</div><div style="font-size:18px;font-weight:700;color:var(--yellow);font-family:var(--font-mono)">${b.window_count||0}</div></div>
+        </div>
+      </div>`;
+    }
+
+    // Alerts for this IP
+    if (d.alerts.length) {
+      html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Alerts (${d.alerts.length})</div>`;
+      html += d.alerts.map(a => `
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span class="sev-badge sev-${a.severity||'Unknown'}">${(a.severity||'UNKNOWN').toUpperCase()}</span>
+            <span style="font-size:12px;font-weight:600">${a.threat_type||'Unknown'}</span>
+            <span style="margin-left:auto;font-size:11px;color:var(--muted)">${a.time_str||''}</span>
+          </div>
+          <div style="font-size:12px;color:var(--muted)">${a.explanation||'Analysis pending'}</div>
+          ${a.recommended_action ? `<div style="font-size:11px;color:var(--accent);margin-top:6px">→ ${a.recommended_action}</div>` : ''}
+        </div>`).join('');
+    }
+
+    // Top destinations
+    if (d.top_dsts.length) {
+      html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 8px">Top Destinations</div>`;
+      html += `<table class="data-table" style="margin-bottom:16px"><thead><tr><th>Destination IP</th><th>Packets</th><th>Total Data</th></tr></thead><tbody>`;
+      html += d.top_dsts.map(r => `<tr>
+        <td class="ip-cell">${r.dst_ip}</td>
+        <td>${r.count.toLocaleString()}</td>
+        <td>${r.total_bytes > 1048576 ? (r.total_bytes/1048576).toFixed(1)+' MB' : (r.total_bytes/1024).toFixed(1)+' KB'}</td>
+      </tr>`).join('');
+      html += `</tbody></table>`;
+    }
+
+    // Top ports
+    if (d.top_ports.length) {
+      const portNames = {80:'HTTP',443:'HTTPS',53:'DNS',22:'SSH',21:'FTP',3306:'MySQL',3389:'RDP',8080:'HTTP-Alt',25:'SMTP',110:'POP3'};
+      html += `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:8px">Top Ports Used</div>`;
+      html += `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">`;
+      html += d.top_ports.map(r => `
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px">
+          <span style="font-family:var(--font-mono);color:var(--accent)">${r.dst_port}</span>
+          <span style="color:var(--muted);margin-left:5px">${portNames[r.dst_port]||''}</span>
+          <span style="color:var(--muted);margin-left:5px">(${r.count})</span>
+        </div>`).join('');
+      html += `</div>`;
+    }
+
+    // Action buttons
+    html += `<div style="display:flex;gap:10px;padding-top:12px;border-top:1px solid var(--border)">
+      <button class="btn-danger" style="padding:8px 18px;font-size:13px;" onclick="quickBlock('${ip}');closeModal('ip-inspector-modal')">🚫 Block this IP</button>
+      <button class="btn-sm btn-ack" style="padding:8px 18px;" onclick="closeModal('ip-inspector-modal')">Close</button>
+    </div>`;
+
+    document.getElementById('inspector-body').innerHTML = html;
+    document.getElementById('inspector-sub').textContent =
+      `${d.windows.length} windows · ${d.alerts.length} alerts · ${d.top_dsts.length} destinations`;
+
+  } catch(e) {
+    document.getElementById('inspector-body').innerHTML = '<div class="empty">Failed to load activity data.</div>';
+  }
+}
+
+// ── Real blocked IPs from server ──────────────────────────────────────────────
+async function renderBlocked() {
+  try {
+    const data = await (await fetch('/api/blocked-ips')).json();
+    const el = document.getElementById('blocked-list');
+    if (!data.length) {
+      el.innerHTML = '<div class="empty">No IPs blocked. Use the Block IP button on any alert or device.</div>';
+      return;
+    }
+    el.innerHTML = data.map(b => `
+      <div class="blocked-item">
+        <div>
+          <div class="blocked-ip">${b.ip}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">${b.reason||'No reason given'} · ${b.blocked_at_str||''} · by ${b.blocked_by||'unknown'}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-sm btn-ack" onclick="inspectIP('${b.ip}')">🔍 Inspect</button>
+          <button class="unblock-btn" onclick="doUnblockIP('${b.ip}')">Unblock</button>
+        </div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function doBlockIP() {
+  const ip     = document.getElementById('block-ip-input').value.trim();
+  const reason = document.getElementById('block-reason-input').value.trim();
+  if (!ip) { toast('Enter a valid IP address','err'); return; }
+
+  try {
+    const res  = await fetch('/api/block-ip', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ip, reason:reason||'Manually blocked'})});
+    const data = await res.json();
+    closeModal('block-modal');
+    renderBlocked();
+    toast(data.message || `${ip} blocked`);
+    document.getElementById('block-ip-input').value = '';
+    document.getElementById('block-reason-input').value = '';
+  } catch(e) { toast('Error blocking IP','err'); }
+}
+
+async function doUnblockIP(ip) {
+  try {
+    await fetch('/api/unblock-ip', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ip})});
+    renderBlocked();
+    toast(`${ip} unblocked`);
+  } catch(e) { toast('Error unblocking','err'); }
+}
+
+// Override quickBlock to use real API
+function quickBlock(ip) {
+  document.getElementById('block-ip-input').value = ip;
+  openBlockModal();
+}
+
+// ── Real user management ──────────────────────────────────────────────────────
+async function loadUsers() {
+  try {
+    const users = await (await fetch('/api/users')).json();
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = users.map(u => `
+      <tr>
+        <td style="font-weight:600">${u.username}</td>
+        <td><span class="trained-badge ${u.role==='admin'?'trained-yes':'trained-no'}">${u.role}</span></td>
+        <td style="color:var(--muted);font-size:12px">${u.last_login_str}</td>
+        <td style="color:var(--muted);font-size:12px">${u.created_str}</td>
+        <td><span class="trained-badge ${u.is_active?'trained-yes':'trained-no'}">${u.is_active?'Active':'Disabled'}</span></td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sm" style="background:rgba(100,116,139,.15);color:var(--muted)" onclick="toggleUser('${u.username}',${u.is_active})">${u.is_active?'Disable':'Enable'}</button>
+            ${u.username!=='admin'?`<button class="btn-sm btn-block" onclick="deleteUser('${u.username}')">Delete</button>`:''}
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch(e) {}
+}
+
+async function doAddUser() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-user-pw').value;
+  const role     = document.getElementById('new-user-role').value;
+
+  if (!username) { toast('Enter a username','err'); return; }
+
+  try {
+    const res  = await fetch('/api/users/add', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password,role})});
+    const data = await res.json();
+    if (data.ok) {
+      closeModal('adduser-modal');
+      toast(data.message);
+      loadUsers();
+      document.getElementById('new-username').value='';
+      document.getElementById('new-user-pw').value='';
+    } else {
+      toast(data.error,'err');
+    }
+  } catch(e) { toast('Error creating user','err'); }
+}
+
+async function deleteUser(username) {
+  if (!confirm(`Delete user "${username}"? This cannot be undone.`)) return;
+  try {
+    const res  = await fetch('/api/users/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username})});
+    const data = await res.json();
+    toast(data.ok ? data.message : data.error, data.ok?'ok':'err');
+    if (data.ok) loadUsers();
+  } catch(e) { toast('Error deleting user','err'); }
+}
+
+async function toggleUser(username, currentlyActive) {
+  try {
+    await fetch('/api/users/toggle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username})});
+    toast(`User ${username} ${currentlyActive?'disabled':'enabled'}`);
+    loadUsers();
+  } catch(e) { toast('Error','err'); }
+}
+
+// ── Update devices table to include Inspect button ────────────────────────────
+async function refreshDevices() {
+  try {
+    const devices = await (await fetch('/api/devices')).json();
+    const tbody = document.getElementById('devices-tbody');
+    if (!devices.length) { tbody.innerHTML='<tr><td colspan="7" class="empty">No devices yet</td></tr>'; return; }
+    tbody.innerHTML = devices.map(d => `
+      <tr>
+        <td class="ip-cell" style="cursor:pointer" onclick="inspectIP('${d.src_ip}')">${d.src_ip} <span style="color:var(--muted);font-size:11px">🔍</span></td>
+        <td>${d.window_count}</td>
+        <td>${(d.avg_bytes_per_sec/1024).toFixed(1)} KB/s</td>
+        <td>${d.avg_unique_dst_ports}</td>
+        <td><span class="trained-badge ${d.model_trained?'trained-yes':'trained-no'}">${d.model_trained?'Ready':'Learning'}</span></td>
+        <td style="color:var(--muted);font-size:12px">${d.last_seen_str||'—'}</td>
+        <td>
+          <div style="display:flex;gap:6px">
+            <button class="btn-sm btn-ack" onclick="inspectIP('${d.src_ip}')">🔍 Inspect</button>
+            <button class="btn-sm btn-block" onclick="quickBlock('${d.src_ip}')">🚫 Block</button>
+          </div>
+        </td>
+      </tr>`).join('');
+  } catch(e) {}
+}
+
+// Also make alert IPs clickable
+function renderAlerts(alerts, containerId) {
+  const el = document.getElementById(containerId);
+  if (!alerts.length) { el.innerHTML='<div class="empty">No alerts yet. Waiting for anomalies...</div>'; return; }
+  el.innerHTML = alerts.map(a => `
+    <div class="alert-item" id="alert-${a.id}">
+      <div class="alert-top">
+        <span class="sev-badge sev-${a.severity}">${a.severity.toUpperCase()}</span>
+        <span class="alert-ip" style="cursor:pointer" onclick="inspectIP('${a.src_ip}')" title="Click to inspect">${a.src_ip} 🔍</span>
+        <span class="alert-time">${a.time_str||''}</span>
+      </div>
+      <div class="alert-type">${a.threat_type}</div>
+      <div class="alert-explain">${a.explanation}</div>
+      <div class="alert-action">→ ${a.recommended_action}</div>
+      <div class="alert-actions-row">
+        <button class="btn-sm btn-ack" onclick="acknowledgeAlert(${a.id})">✓ Acknowledge</button>
+        <button class="btn-sm" style="background:rgba(0,229,255,.1);color:var(--accent)" onclick="inspectIP('${a.src_ip}')">🔍 Inspect</button>
+        <button class="btn-sm btn-block" onclick="quickBlock('${a.src_ip}')">🚫 Block IP</button>
+      </div>
+    </div>`).join('');
+}
+
+// Update users table header
+document.querySelector('#view-users .data-table thead tr').innerHTML =
+  '<th>Username</th><th>Role</th><th>Last Login</th><th>Created</th><th>Status</th><th>Actions</th>';
+</script>

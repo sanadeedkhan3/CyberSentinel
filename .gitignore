@@ -1,0 +1,8 @@
+.env
+auth.db
+cybersentinel.db
+models/
+reports/
+__pycache__/
+*.pyc
+*.pkl
